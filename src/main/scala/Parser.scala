@@ -1,8 +1,8 @@
-import akka.routing.RoundRobinRouter
-import scala.concurrent.ExecutionContext.Implicits.global
-import akka.agent.Agent
-import akka.actor._
-import akka.event.Logging
+//import akka.routing.RoundRobinRouter
+//import scala.concurrent.ExecutionContext.Implicits.global
+//import akka.agent.Agent
+//import akka.actor._
+//import akka.event.Logging
 import scala.io.Source
 import scala.xml.pull._
 import scala.xml.pull.EvComment
@@ -19,20 +19,24 @@ case class XmlFilename(name: String)
 case class Article(title: String, text: String)
 case class ArticleSummary(title: String, length: Int)
 
-class XmlReader extends Actor {
-  val log = Logging(context.system, this)
+object log {
+  def debug(a: Any*):Unit = {}
+}
 
-  override def receive: Receive = {
+object XmlReader {
+//  val log = Logging(this, this)
+
+  def receive(data: Any) = data match {
     case XmlFilename(name) =>
       readXmlFile(name)
-      context.actorSelection("/user/longestArticle") ! "stats"
+      LongestArticle.receive("stats")
 
-      Parser.met ! ShowTime()
+//      Parser.met ! ShowTime()
     case _ =>
   }
 
   def readXmlFile(name: String) = {
-    log.debug(s"Reading file $name")
+//    log.debug(s"Reading file $name")
     // parse xml content
 
     val t1 = TimeLib.getTime
@@ -40,12 +44,12 @@ class XmlReader extends Actor {
     val xml = new XMLEventReader(Source.fromFile(name))
 
     val t2 = TimeLib.getTime
-    Parser.met ! ExecTime("readXml-FromFile", t2-t1)
+//    Parser.met ! ExecTime("readXml-FromFile", t2-t1)
 
     parseXml(xml)
 
     val t3 = TimeLib.getTime
-    Parser.met ! ExecTime("readXml-parseXml", t3-t2)
+//    Parser.met ! ExecTime("readXml-parseXml", t3-t2)
     println(f"Exec time: ${(t3 - t1) / Math.pow(10, 9)}%.2f sec")
 
   }
@@ -82,7 +86,8 @@ class XmlReader extends Actor {
         case EvElemEnd(_, "text")   =>
           log.debug(s"Got full article text [$lastTitle] - process it!")
 
-          context.actorSelection("/user/article") ! Article(lastTitle, pageText)
+//          context.actorSelection("/user/article") ! Article(lastTitle, pageText)
+          ArticleParser.receive(Article(lastTitle, pageText))
 
           pageText = ""
           inPageText = false
@@ -101,15 +106,15 @@ class XmlReader extends Actor {
         case EvComment(text) => log.debug(s"EVCOMMENT: $text")
         case _ =>
       }
-      Parser.met ! ExecTime("xmlHasNext", TimeLib.getTime - t1)
+//      Parser.met ! ExecTime("xmlHasNext", TimeLib.getTime - t1)
     }
   }
 }
 
-class ArticleParser extends Actor {
-  val log = Logging(context.system, this)
+object ArticleParser {
+//  val log = Logging(context.system, this)
 
-  def receive: Receive = {
+  def receive(data: Any) = data match {
     case art: Article => parseArticle(art)
     case _ =>
   }
@@ -126,35 +131,37 @@ class ArticleParser extends Actor {
     )
 
     val t2 = TimeLib.getTime
-    Parser.met ! ExecTime("parseArticle-1", t2-t1)
-    context.actorSelection("/user/longestArticle") ! ArticleSummary(art.title, art.text.length())
+//    Parser.met ! ExecTime("parseArticle-1", t2-t1)
+
+//    context.actorSelection("/user/longestArticle") ! ArticleSummary(art.title, art.text.length())
+    LongestArticle.receive(ArticleSummary(art.title, art.text.length()))
 
     val t3 = TimeLib.getTime
 
-    if (false) {
+    if (true) {
       val ap = new ArticleParsingLib()
       val geoPos = ap.getGeo(art)
       val seePlaces = ap.getSeePlaces(art)
     } else {
-      val geoPos = context.actorSelection("/user/geoParser") ! art
-      val seePlaces = context.actorSelection("/user/seePlaces") ! art
+//      val geoPos = context.actorSelection("/user/geoParser") ! art
+//      val seePlaces = context.actorSelection("/user/seePlaces") ! art
     }
-    Parser.met ! ExecTime("parseArticle-2", TimeLib.getTime-t3)
+//    Parser.met ! ExecTime("parseArticle-2", TimeLib.getTime-t3)
   }
 }
 
-class ArticleGeoParser extends Actor {
+class ArticleGeoParser {
   val ap = new ArticleParsingLib()
-  override def receive: Actor.Receive = {
-    case e: Article => sender ! ap.getGeo(e)
+  def receive(data: Any): Any = data match {
+    case e: Article => return ap.getGeo(e)
     case _ =>
   }
 }
 
-class ArticleSeePlacesParser extends Actor {
+class ArticleSeePlacesParser  {
   val ap = new ArticleParsingLib()
-  override def receive: Actor.Receive = {
-    case e: Article => sender ! ap.getSeePlaces(e)
+  def receive(data: Any): Any = data match {
+    case e: Article => return ap.getSeePlaces(e)
     case _ =>
   }
 }
@@ -170,30 +177,32 @@ class ArticleParsingLib {
       val pos2 = text.indexOf("}}", pos + 5)
       val geoFields = text.substring(pos + 6, pos2).split('|')
       if (geoFields.size >= 2) {
-        Parser.met ! ExecTime("getGeo-1", TimeLib.getTime - t1)
+//        Parser.met ! ExecTime("getGeo-1", TimeLib.getTime - t1)
         return geoFields
       }
     }
-    Parser.met ! ExecTime("getGeo-2", TimeLib.getTime - t1)
+//    Parser.met ! ExecTime("getGeo-2", TimeLib.getTime - t1)
     Seq()
   }
 
   def getSeePlaces(art: Article):Int = {
     val t1 = TimeLib.getTime
 
+    // TODO: more complex article data processing (so there is a gain in parallel processing)
     val pos = art.text.indexOf("\n==See==\n")
 
-    Parser.met ! ExecTime("seePlaces", TimeLib.getTime - t1)
+//    Parser.met ! ExecTime("seePlaces", TimeLib.getTime - t1)
     pos
   }
 }
 
-class LongestArticle extends Actor {
-  val log = Logging(context.system, this)
+object LongestArticle {
+//  val log = Logging(context.system, this)
   var max = 0
   var count = 0 // naive implementation, or actually a counter of processed msg by single actor
+  var titleMax = ""
 
-  override def receive: Receive = {
+  def receive(data: Any): Unit = data match {
     case e: ArticleSummary =>
       val t1 = TimeLib.getTime
 
@@ -201,49 +210,43 @@ class LongestArticle extends Actor {
       count += 1
       if (count % 1000 == 0) println(count)
 
-      Parser.agentCount.send(_ + 1)
+//      Parser.agentCount.send(_ + 1)
 
       // a bit more complex computation for an agent
-      Parser.agentMaxArtTitleLen.send(v =>
-        if (v < e.title.length)
-          e.title.length
-        else v
-      )
+      if (max < e.title.length)
+        max = e.title.length
 
       // we can just compare which one is the longest
-      Parser.agentMaxArtTitle.send(current =>
-        if (current.length < e.title.length)
-          e.title
-        else
-          current
-      )
-      Parser.met ! ExecTime("longestArticle", TimeLib.getTime - t1)
+      if (titleMax.length < e.title.length)
+        titleMax = e.title
+//      Parser.met ! ExecTime("longestArticle", TimeLib.getTime - t1)
 
     case "stats" =>
-      println(s"LongestArt: $max (${Parser.agentMaxArtTitle.get()}), count: ${Parser.agentCount.get()}, $count")
+      println(s"LongestArt: $max ($titleMax), count: $count, $count")
   }
 }
 
 object Parser extends App {
 
-  implicit val system = ActorSystem("parser")
+//  implicit val system = ActorSystem("parser")
   //  val log = Logger
 
-  val reader = system.actorOf(Props[XmlReader], "reader")
-  val parser = system.actorOf(Props[ArticleParser].withRouter(RoundRobinRouter(3)), "article")
-  val art = system.actorOf(Props[LongestArticle].withRouter(RoundRobinRouter(2)), "longestArticle")
-  val geo = system.actorOf(Props[ArticleGeoParser].withRouter(RoundRobinRouter(2)), "geoParser")
-  val seePl = system.actorOf(Props[ArticleSeePlacesParser], "seePlaces")
-  val met = system.actorOf(Props[Metrics], "metrics")
+//  val reader = system.actorOf(Props[XmlReader], "reader")
+//  val parser = system.actorOf(Props[ArticleParser].withRouter(RoundRobinRouter(3)), "article")
+//  val art = system.actorOf(Props[LongestArticle].withRouter(RoundRobinRouter(2)), "longestArticle")
+//  val geo = system.actorOf(Props[ArticleGeoParser].withRouter(RoundRobinRouter(2)), "geoParser")
+//  val seePl = system.actorOf(Props[ArticleSeePlacesParser], "seePlaces")
+//  val met = system.actorOf(Props[Metrics], "metrics")
 
-  val agentCount = Agent(0)
-  val agentMaxArtTitle = Agent("")
-  val agentMaxArtTitleLen = Agent(0)
+//  val agentCount = Agent(0)
+//  val agentMaxArtTitle = Agent("")
+//  val agentMaxArtTitleLen = Agent(0)
 
   println("Sending flnm")
-  val inbox = Inbox.create(system)
+//  val inbox = Inbox.create(system)
   val file = if (false) "/home/ab/data1_ab/tmp/wiki/enwiki_part1.xml"
     else "/home/ab/data1_ab/tmp/wiki/enwikivoyage-20140520-pages-articles.xml"
-  inbox.send(reader, XmlFilename(file))
+//  inbox.send(reader, XmlFilename(file))
+  XmlReader.receive(XmlFilename(file))
 
 }

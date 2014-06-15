@@ -1,6 +1,6 @@
-import akka.actor.Actor
-import akka.actor.Actor.Receive
-import akka.agent.Agent
+//import akka.actor.Actor
+//import akka.actor.Actor.Receive
+//import akka.agent.Agent
 import scala.collection.mutable
 
 /**
@@ -10,6 +10,7 @@ import scala.collection.mutable
 case class ExecTime(name:String, time:Long)
 case class ShowTime()
 
+/*
 class Metrics extends Actor {
   val counter = new mutable.HashMap[String, Long]() with mutable.SynchronizedMap[String, Long]
   val execTime = new mutable.HashMap[String, Long]() with mutable.SynchronizedMap[String, Long]
@@ -48,6 +49,7 @@ class Metrics extends Actor {
     }
   */
 }
+*/
 
 object TimeLib {
   def getTime:Long = {
