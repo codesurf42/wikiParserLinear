@@ -12,6 +12,7 @@ libraryDependencies ++= Seq(
 //  ,"com.yammer.metrics" % "metrics-core" % "3.0.1"
   // for scala >= 2.11.1:
   //  ,"org.scala-lang.modules" %% "scala-xml" % "1.0.2"
+  "org.scalatest" %% "scalatest" % "2.2.0" % "test"
 )
 
 //  "com.typesafe.akka" %% "akka-testkit" % "2.3.3",
@@ -20,7 +21,7 @@ libraryDependencies ++= Seq(
 //  "com.novocode" % "junit-interface" % "0.10" % "test"
 //)
 
-testOptions += Tests.Argument(TestFrameworks.JUnit, "-v")
+//testOptions += Tests.Argument(TestFrameworks.JUnit, "-v")
 
 atmosSettings
 

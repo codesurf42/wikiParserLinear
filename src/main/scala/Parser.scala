@@ -4,6 +4,7 @@
 //import akka.actor._
 //import akka.event.Logging
 import scala.io.Source
+import scala.util.matching.Regex
 import scala.xml.pull._
 import scala.xml.pull.EvComment
 import scala.xml.pull.EvElemEnd
@@ -166,6 +167,10 @@ class ArticleSeePlacesParser  {
   }
 }
 
+abstract class Subsection()
+case class SubsectionString(s: String) extends Subsection
+case class SubsectionMap(keyVal: Map[String, String]) extends Subsection
+
 class ArticleParsingLib {
 
   def getGeo(art: Article):Seq[String] = {
@@ -193,6 +198,29 @@ class ArticleParsingLib {
 
 //    Parser.met ! ExecTime("seePlaces", TimeLib.getTime - t1)
     pos
+  }
+
+  def getSection(wikiText: String, section: String):String = {
+    val reHeader = """(={2,3})([^\n]{1,50})\1""".r
+    val reHeader(prefix, name) = section
+
+//    println(s"prefix: $prefix, name=$name")
+
+    val reSection = ("""(?s)\n""" + prefix + name + prefix + "\\n" +
+      """(.*?)""" +
+      """(?:""" +
+        """(?:\n""" + prefix + """[^\n]{1,50}""" + prefix + """\n)""" +
+        """|\z)""").r
+//    println(reSection)
+
+    reSection.findFirstIn(wikiText) match {
+      case Some(reSection(content)) => content
+      case None                     => ""
+    }
+  }
+
+  def getSubsection(section: String, name: String):Seq[Subsection] = {
+    Seq()
   }
 }
 
