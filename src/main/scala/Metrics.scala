@@ -10,12 +10,11 @@ import scala.collection.mutable
 case class ExecTime(name:String, time:Long)
 case class ShowTime()
 
-/*
-class Metrics extends Actor {
+object Metrics {
   val counter = new mutable.HashMap[String, Long]() with mutable.SynchronizedMap[String, Long]
   val execTime = new mutable.HashMap[String, Long]() with mutable.SynchronizedMap[String, Long]
 
-  def receive: Receive = {
+  def !(e: Any) = e match {
     case ExecTime(name, time) =>
       if (!execTime.contains(name)) execTime.put(name, 0)
       if (!counter.contains(name)) counter.put(name, 0)
@@ -49,7 +48,6 @@ class Metrics extends Actor {
     }
   */
 }
-*/
 
 object TimeLib {
   def getTime:Long = {

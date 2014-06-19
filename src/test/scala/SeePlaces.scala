@@ -6,7 +6,7 @@ import org.scalatest._
 class SeePlaces extends FlatSpec with Matchers {
   "A parser" should "return whole section" in {
 
-    val p = new ArticleParsingLib
+    val p = new WikiParsing
 
     val strip =
       """

@@ -32,7 +32,8 @@ object XmlReader {
       readXmlFile(name)
       LongestArticle.receive("stats")
 
-//      Parser.met ! ShowTime()
+      Parser.met ! ShowTime()
+
     case _ =>
   }
 
@@ -45,12 +46,12 @@ object XmlReader {
     val xml = new XMLEventReader(Source.fromFile(name))
 
     val t2 = TimeLib.getTime
-//    Parser.met ! ExecTime("readXml-FromFile", t2-t1)
+    Parser.met ! ExecTime("readXml-FromFile", t2-t1)
 
     parseXml(xml)
 
     val t3 = TimeLib.getTime
-//    Parser.met ! ExecTime("readXml-parseXml", t3-t2)
+    Parser.met ! ExecTime("readXml-parseXml", t3-t2)
     println(f"Exec time: ${(t3 - t1) / Math.pow(10, 9)}%.2f sec")
 
   }
@@ -107,7 +108,7 @@ object XmlReader {
         case EvComment(text) => log.debug(s"EVCOMMENT: $text")
         case _ =>
       }
-//      Parser.met ! ExecTime("xmlHasNext", TimeLib.getTime - t1)
+      Parser.met ! ExecTime("xmlHasNext", TimeLib.getTime - t1)
     }
   }
 }
@@ -132,7 +133,7 @@ object ArticleParser {
     )
 
     val t2 = TimeLib.getTime
-//    Parser.met ! ExecTime("parseArticle-1", t2-t1)
+    Parser.met ! ExecTime("parseArticle-1", t2-t1)
 
 //    context.actorSelection("/user/longestArticle") ! ArticleSummary(art.title, art.text.length())
     LongestArticle.receive(ArticleSummary(art.title, art.text.length()))
@@ -140,19 +141,19 @@ object ArticleParser {
     val t3 = TimeLib.getTime
 
     if (true) {
-      val ap = new ArticleParsingLib()
+      val ap = new WikiParsing()
       val geoPos = ap.getGeo(art)
       val seePlaces = ap.getSeePlaces(art)
     } else {
 //      val geoPos = context.actorSelection("/user/geoParser") ! art
 //      val seePlaces = context.actorSelection("/user/seePlaces") ! art
     }
-//    Parser.met ! ExecTime("parseArticle-2", TimeLib.getTime-t3)
+    Parser.met ! ExecTime("parseArticle-2", TimeLib.getTime-t3)
   }
 }
 
 class ArticleGeoParser {
-  val ap = new ArticleParsingLib()
+  val ap = new WikiParsing()
   def receive(data: Any): Any = data match {
     case e: Article => return ap.getGeo(e)
     case _ =>
@@ -160,7 +161,7 @@ class ArticleGeoParser {
 }
 
 class ArticleSeePlacesParser  {
-  val ap = new ArticleParsingLib()
+  val ap = new WikiParsing()
   def receive(data: Any): Any = data match {
     case e: Article => return ap.getSeePlaces(e)
     case _ =>
@@ -170,59 +171,6 @@ class ArticleSeePlacesParser  {
 abstract class Subsection()
 case class SubsectionString(s: String) extends Subsection
 case class SubsectionMap(keyVal: Map[String, String]) extends Subsection
-
-class ArticleParsingLib {
-
-  def getGeo(art: Article):Seq[String] = {
-    val t1 = TimeLib.getTime
-
-    val text = art.text
-    val pos = text.indexOf("{{geo|")
-    if (pos > 0) {
-      val pos2 = text.indexOf("}}", pos + 5)
-      val geoFields = text.substring(pos + 6, pos2).split('|')
-      if (geoFields.size >= 2) {
-//        Parser.met ! ExecTime("getGeo-1", TimeLib.getTime - t1)
-        return geoFields
-      }
-    }
-//    Parser.met ! ExecTime("getGeo-2", TimeLib.getTime - t1)
-    Seq()
-  }
-
-  def getSeePlaces(art: Article):Int = {
-    val t1 = TimeLib.getTime
-
-    // TODO: more complex article data processing (so there is a gain in parallel processing)
-    val pos = art.text.indexOf("\n==See==\n")
-
-//    Parser.met ! ExecTime("seePlaces", TimeLib.getTime - t1)
-    pos
-  }
-
-  def getSection(wikiText: String, section: String):String = {
-    val reHeader = """(={2,3})([^\n]{1,50})\1""".r
-    val reHeader(prefix, name) = section
-
-//    println(s"prefix: $prefix, name=$name")
-
-    val reSection = ("""(?s)\n""" + prefix + name + prefix + "\\n" +
-      """(.*?)""" +
-      """(?:""" +
-        """(?:\n""" + prefix + """[^\n]{1,50}""" + prefix + """\n)""" +
-        """|\z)""").r
-//    println(reSection)
-
-    reSection.findFirstIn(wikiText) match {
-      case Some(reSection(content)) => content
-      case None                     => ""
-    }
-  }
-
-  def getSubsection(section: String, name: String):Seq[Subsection] = {
-    Seq()
-  }
-}
 
 object LongestArticle {
 //  val log = Logging(context.system, this)
@@ -247,7 +195,7 @@ object LongestArticle {
       // we can just compare which one is the longest
       if (titleMax.length < e.title.length)
         titleMax = e.title
-//      Parser.met ! ExecTime("longestArticle", TimeLib.getTime - t1)
+      Parser.met ! ExecTime("longestArticle", TimeLib.getTime - t1)
 
     case "stats" =>
       println(s"LongestArt: $max ($titleMax), count: $count, $count")
@@ -265,6 +213,7 @@ object Parser extends App {
 //  val geo = system.actorOf(Props[ArticleGeoParser].withRouter(RoundRobinRouter(2)), "geoParser")
 //  val seePl = system.actorOf(Props[ArticleSeePlacesParser], "seePlaces")
 //  val met = system.actorOf(Props[Metrics], "metrics")
+  val met = Metrics
 
 //  val agentCount = Agent(0)
 //  val agentMaxArtTitle = Agent("")
@@ -272,8 +221,10 @@ object Parser extends App {
 
   println("Sending flnm")
 //  val inbox = Inbox.create(system)
-  val file = if (false) "/home/ab/data1_ab/tmp/wiki/enwiki_part1.xml"
-    else "/home/ab/data1_ab/tmp/wiki/enwikivoyage-20140520-pages-articles.xml"
+
+  val file = if (false) "/tmp/wiki/enwiki_part1.xml" // shorter partial file of
+  else "/tmp/wiki/enwikivoyage-20140520-pages-articles.xml" // full unpacked XML dump of Wiki-Voyage
+
 //  inbox.send(reader, XmlFilename(file))
   XmlReader.receive(XmlFilename(file))
 
